@@ -53,9 +53,6 @@ func LoadIntoJar(db *sql.DB, jar *cookiejar.Jar) error {
 	}
 	defer rows.Close()
 
-	var outerHost string
-	var c []*http.Cookie
-
 	for rows.Next() {
 		var host, path, value, name string
 		var isSecure bool
@@ -66,21 +63,7 @@ func LoadIntoJar(db *sql.DB, jar *cookiejar.Jar) error {
 			return err
 		}
 
-		if host != outerHost {
-			// length check is for the very first run, where the values won't match,
-			// but there will not be cookies to write
-			if len(c) > 0 {
-				url := &url.URL{Scheme: "http", Host: outerHost}
-				jar.SetCookies(url, c)
-			}
-
-			outerHost = host
-			// Could use more complex query to make with correct capacity, for
-			// better performance
-			c = []*http.Cookie{}
-		}
-
-		c = append(c, &http.Cookie{
+		jar.SetCookies(&url.URL{Scheme: "http", Host: host}, []*http.Cookie{{
 			Name:   name,
 			Value:  value,
 			Secure: isSecure,
@@ -95,14 +78,12 @@ func LoadIntoJar(db *sql.DB, jar *cookiejar.Jar) error {
 			// * HttpOnly
 			// * Raw
 			// * Unparsed
-		})
+		}})
 	}
 	err = rows.Err()
 	if err != nil {
 		return err
 	}
-	url := &url.URL{Scheme: "http", Host: outerHost}
-	jar.SetCookies(url, c)
 
 	return nil
 }
